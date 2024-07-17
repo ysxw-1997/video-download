@@ -7,7 +7,7 @@ import ffmpeg
 import os
 import uuid
 
-MAX_SIZE_MB = 10  # 设置最大文件大小限制
+MAX_SIZE_MB = 1024  # 设置最大文件大小限制
 MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024  # 转换为字节
 
 thread_local = threading.local()
@@ -25,8 +25,12 @@ def send_message(file_uuid,message,event_type):
 
 def check_total_size(m3u8_url):
     send_message(thread_local.file_uuid,"正在检测视频大小...","progress")
+    try:
+        m3u8_obj = m3u8.load(m3u8_url)
+    except Exception as e:
+        send_message(thread_local.file_uuid,"视频下载失败,请检查链接是否正确","error")
+        return False, 0
 
-    m3u8_obj = m3u8.load(m3u8_url)
     total_size = 0
 
     for segment in m3u8_obj.segments:
@@ -76,6 +80,8 @@ def async_download_video(file_uuid,m3u8_url,download_url):
     is_size_ok, total_size = check_total_size(m3u8_url)
     if not is_size_ok:
         send_message(file_uuid,"视频过大,暂不支持","error")
+        return
+
 
     ts_files = download_ts_files(m3u8_url)
     output_filename = f"{file_uuid}.mp4"

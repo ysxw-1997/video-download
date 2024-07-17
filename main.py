@@ -6,7 +6,7 @@ from flask import Blueprint
 from queue import Queue, Empty
 import threading
 from download import async_download_video
-from sse_manager import clients
+from sse_manager import clients,remove_client
 
 
 # 蓝图
@@ -54,11 +54,17 @@ def stream(file_uuid):
 
     def event_stream(file_uuid):
         while True:
+            print(clients)
             try:
                 event_type, msg = clients[file_uuid].get_nowait()
+                if event_type == 'error' or event_type == 'success':
+                    remove_client(file_uuid)
+
                 yield f'event: {event_type}\ndata: {msg}\n\n'
             except Empty:
                 continue
+            except KeyError:
+                break
 
     if file_uuid not in clients:
         clients[file_uuid] = Queue(maxsize=1)
@@ -66,7 +72,6 @@ def stream(file_uuid):
 
     return Response(event_stream(file_uuid), mimetype="text/event-stream")
 
-
+app.register_blueprint(vd_blueprint,url_prefix='/vd')
 if __name__ == '__main__':
-    app.register_blueprint(vd_blueprint,url_prefix='/vd')
     app.run(debug=True)

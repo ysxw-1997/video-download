@@ -12,3 +12,6 @@ def send_message(file_uuid,message,event_type):
         clients[file_uuid].get()  # 清空队列
         clients[file_uuid].put_nowait((event_type, message))
 
+def remove_client(file_uuid):
+    if file_uuid in clients:
+        del clients[file_uuid]
