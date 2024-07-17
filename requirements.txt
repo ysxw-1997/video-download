@@ -1,0 +1,5 @@
+m3u8
+requests
+ffmpeg-python
+flask
+flask-cors
