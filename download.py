@@ -6,9 +6,11 @@ import m3u8
 import ffmpeg
 import os
 import uuid
+import logging
 
-MAX_SIZE_MB = 1024  # 设置最大文件大小限制
+MAX_SIZE_MB = 100  # 设置最大文件大小限制
 MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024  # 转换为字节
+SAVE_DIR = "/data/vd"
 
 thread_local = threading.local()
 
@@ -49,6 +51,7 @@ def check_total_size(m3u8_url):
 
 def download_ts_files(m3u8_url):
     send_message(thread_local.file_uuid,"开始下载视频...","progress")
+    logging.debug(f"start download:{m3u8_url}")
     m3u8_obj = m3u8.load(m3u8_url)
     
     total_segments = len(m3u8_obj.segments)
@@ -58,12 +61,14 @@ def download_ts_files(m3u8_url):
     for index,segment in enumerate(m3u8_obj.segments):
         send_message(thread_local.file_uuid,f"正在下载({index + 1}/{total_segments})","progress")
         # print(f"正在下载第 {index + 1}个,一共{total_segments}个")
+        logging.debug(f"正在下载({index + 1}/{total_segments})")
         ts_url = segment.uri
         if not ts_url.startswith('http'):
             ts_url = m3u8_obj.base_uri + ts_url
 
         ts_content = requests.get(ts_url).content
-        ts_filename = f"{uuid.uuid4()}.ts"
+        ts_filename = os.path.join(SAVE_DIR,f"{uuid.uuid4()}.ts") 
+
         with open(ts_filename, 'wb') as f:
             f.write(ts_content)
         ts_files.append(ts_filename)
@@ -77,14 +82,16 @@ def merge_ts_to_mp4(ts_files, output_filename):
 def async_download_video(file_uuid,m3u8_url,download_url):
 
     thread_local.file_uuid = file_uuid
+    
     is_size_ok, total_size = check_total_size(m3u8_url)
+    logging.debug(f"total_size:{total_size}")
     if not is_size_ok:
         send_message(file_uuid,"视频过大,暂不支持","error")
         return
 
 
     ts_files = download_ts_files(m3u8_url)
-    output_filename = f"{file_uuid}.mp4"
+    output_filename = os.path.join(SAVE_DIR, f"{file_uuid}.mp4") 
     merge_ts_to_mp4(ts_files, output_filename)
     for ts_file in ts_files:
         os.remove(ts_file)
